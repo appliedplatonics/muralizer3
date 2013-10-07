@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+  <_name>Muralizer Control</_name>
+  <id>command.appliedplatonics.muralizer.0.0.1</id>
+  <dependency type="extension">org.inkscape.output.svg.inkscape</dependency>
+  <dependency type="executable" location="extensions">muralizer.py</dependency>
+  <dependency type="executable" location="extensions">inkex.py</dependency>
+  <param name="tab" type="notebook">
+  
+    <page name="splash" _gui-text="Plot">
+      <_param name="splashpage" type="description" xml:space="preserve">
+Welcome to the Muralizer interface!
+
+Press 'Apply' to begin plotting.
+
+Or, look in the other tabs for
+ configuration and other options.
+
+Need help? Sorry, that's not built yet.
+</_param>
+    </page>
+
+    <page name='setup' _gui-text='Setup'>
+
+      <_param name="instructions_setup" type="description" xml:space="preserve">
+Muralizer: Basic Setup
+</_param>
+<param name="canvasWidth" type="int" min="10" max="10000"
+       _gui-text="      Canvas width (cm) 10~10000 (0.1~100m)">100</param>
+
+<param name="canvasHeight" type="int" min="10" max="10000"
+       _gui-text="      Canvas height (cm) 10~10,000 (0.1~100m)">100</param>
+
+<param name="marginXL" type="int" min="0" max="5000"
+       _gui-text="      Margin X Left (cm) 0~5,000 (0~5m)">10</param>
+
+<param name="marginXR" type="int" min="0" max="5000"
+       _gui-text="      Margin X Right (cm) 0~5,000 (0~5m)">10</param>
+
+<param name="marginYT" type="int" min="0" max="5000"
+       _gui-text="      Margin Y Top (cm) 0~5,000 (0~5m)">10</param>
+
+      <param name="setupType" type="optiongroup" appearance=""
+	     _gui-text="          Action on 'Apply': ">
+	<_option value="toggle-pen"     >Toggle pen up/down</_option>
+	<_option value="align-mode"     >Raise pen, turn off motors</_option>	
+      </param>
+      <_param name="instructions_setup3" type="description"
+	      xml:space="preserve">
+- Raise and lower pen to check the
+  pen-up and pen-down positions.
+
+- Raise pen and turn off stepper motors
+  for aligning objects in the Egg-Bot.
+</_param>
+    </page>
+
+    <page name='motors' _gui-text='Motor/Spool settings'>
+<param name="stepsPerRev" type="int" min="1" max="1000"
+       _gui-text="      Steps per Revolution 1~1000">48</param>
+
+<param name="spoolDiameter" type="int" min="1" max="1000"
+       _gui-text="      Spool diameter (mm) 1~1000">30</param>
+
+      <_param name="help_motors" type="description">
+Note: Pressing 'Apply' will apply settings, but not plot.
+</_param>
+    </page>
+
+    <page name='options' _gui-text='Options'>
+      <param name="smoothness" type="float"
+           _gui-text="          Curve smoothing (lower for more):">.2</param>
+      <_param name="help_options" type="description">
+Note: Pressing 'Apply' will apply settings, but not plot.
+</_param>
+    </page>
+	
+    <page name="manual" _gui-text="Manual">
+      <_param name="instructions_manual" type="description"
+	      xml:space="preserve">
+Muralizer Manual Control
+
+You can use this frame to send "manual" commands
+to the Muralizer: Walk the stepper motors, raise or
+lower the pen, enable or disable the motors, or 
+check the circuit board (Muralizer) firmware version.
+</_param>
+
+      <param name="manualType" type="optiongroup" appearance="minimal"
+	     _gui-text="               Command: ">
+	<_option value="none"           >- Select -</_option>
+	<_option value="enable-motors"  >Enable Motors</_option>
+
+	<_option value="disable-motors" >Disable Motors</_option>
+	<_option value="walk-r0" >Walk r0 motor (top left)</_option>
+	<_option value="walk-r1" >Walk r1 motor (top right)</_option>
+	
+	<_option value="version-check"  >Check Firmware Version</_option>
+      </param>
+
+      <param name="walkDistance" type="int" min="-3200" max="3200" 
+             _gui-text="               Walk distance (steps):">5</param>
+      <_param name="instructions_manual2" type="description"
+	      xml:space="preserve">
+Note: Walk distance can be positive or negative.
+
+Press 'Apply' to execute the command.
+</_param>
+    </page>
+
+
+    <page name="layers" _gui-text="Layers">
+      <_param name="instructions_layer" type="description" xml:space="preserve">
+Normally, we plot paths from all layers.  
+You can also choose to plot a single layer 
+or group of layers, for example to change
+pens between plotting layers.
+
+Pressing 'Apply' from this frame will plot
+only layers whose names begin with the 
+selected number, which can be up to 100.
+
+To print all layers, use -1.
+</_param>
+      <param name="layernumber" type="int" min="-1" max="100"
+	     _gui-text="   Plot only layers beginning with: ">-1</param>
+    </page>			
+
+    <page name="Help" _gui-text="*">
+      <_param name="instructions_general" type="description"
+	      xml:space="preserve">
+Muralizer Control Inkscape extension 
+Release 0.0.1, dated 2013-09-28
+
+Known issues:
+* "Cancel" function does not work while plotting.
+  (This is due to a known bug in Inkscape.)
+</_param>
+    </page>
+  </param>
+
+  <effect needs-live-preview="false" needs-document="no">
+    <object-type>all</object-type>
+    <effects-menu>
+      <submenu _name="Muralizer"/>
+    </effects-menu>
+  </effect>
+
+  <script>
+    <command reldir="extensions" interpreter="python">muralizer.py</command>
+  </script>
+
+</inkscape-extension>
