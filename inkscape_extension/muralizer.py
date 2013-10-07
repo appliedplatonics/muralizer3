@@ -162,6 +162,19 @@ class MuralizerState:
 		self.debug_path = "/tmp/muralizer_debug"
 		self.debug_fd = file(self.debug_path, "w")
 		self.alert("Set up state.")
+
+		if "serialPort" in kwargs:
+			self.serial_fd = kwargs["serialPort"]
+			self.has_serial = True
+
+			header_line = self.serial_fd.readline()
+			self.alert("Got header line: " + header_line.strip())
+
+		else:
+			self.serial_fd = file("/dev/null", "w")
+			self.has_serial = False
+
+			self.alert("Running without a real serial port.")
 		
 		
 
@@ -186,6 +199,17 @@ class MuralizerState:
 				       self.canvasWidth*self.canvasWidth) / self.stepMM
 
 
+	def attach_serial(self, serial_fd):
+		if not self.has_serial:
+			self.serial_fd.close()
+
+		self.serial_fd = serial_fd
+		self.has_serial = True
+
+	def detach_serial(self):
+		self.has_serial = False
+		self.serial_fd = file("/dev/null", "w")
+
 	def page_width(self):
 		"""Get the width of the actual drawing area, in steps"""
 		return (self.canvasWidth - self.marginXL - self.marginXR)/self.stepMM
@@ -208,6 +232,7 @@ Cursor: <%.1f,%.1f>, which is (%.2f,%.2f).""" % (
 
 	def alert(self, str):
 		self.debug_fd.write(str + "\n")
+		self.debug_fd.flush()
 		pass
 		
 
@@ -277,7 +302,10 @@ Cursor: <%.1f,%.1f>, which is (%.2f,%.2f).""" % (
 		self.alert("Got command to go to (%.1f,%.1f): <%.1f,%.1f> -> <%.1f,%.1f>" % (x, y, self.r0,self.r1, r0p,r1p, ))
 		self.cmd_move_rs(r0p, r1p)
 
-		
+
+	def _query(self, s):
+		self.serial_fd.write(s + "\n")
+		return self.serial_fd.readline().strip()
 
 
 	####################
@@ -296,18 +324,31 @@ Cursor: <%.1f,%.1f>, which is (%.2f,%.2f).""" % (
 		self.alert("CMD: ENABLE MOTORS")
 
 	def cmd_move_rs(self, r0, r1):
-		self.alert("CMD: WALK: Dest <%d, %d>, delta d<%d, %d>" % (r0, r1, r0-self.r0, r1-self.r1))
+		dr0 = r0 - self.r0
+		dr1 = r1 - self.r1
+		self.alert("CMD: WALK: Dest <%d, %d>, delta d<%d, %d>" % (r0, r1, dr0, dr1))
 		self.r0 = r0
 		self.r1 = r1
 
+		q = "r %d %d" % (dr0, dr1)
+		retval = self._query(q)
+		self.alert(" %s  => %s" % (q.strip(), retval))
+		
+
 	def cmd_move_r0(self, n):
 		self.alert("CMD: WALK R0: %d" % n)
+		self.cmd_move_rs(n, 0)
 
 	def cmd_move_r1(self, n):
 		self.alert("CMD: WALK R1: %d" % n)
+		self.cmd_move_rs(0, n)
 
 	def cmd_version(self):
 		self.alert("CMD: VERSION QUERY")
+
+		if self.has_serial:
+			return self._query("v")
+
 		return "v0.1"
 
 	def cmd_button_down(self):
@@ -344,19 +385,19 @@ class Muralizer( inkex.Effect ):
 		my_params = [  # param name, type, default, help
 			##################################################
 			# Canvas properties
-			("canvasWidth" , "int", 100, "Canvas width (cm)"),
-			("canvasHeight", "int", 100, "Canvas height (cm)"),
+			("canvasWidth" , "int", 122, "Canvas width (cm)"),
+			("canvasHeight", "int", 183, "Canvas height (cm)"),
 
-			("marginXL"    , "int",  10, "Margin X,left (cm)"),
-			("marginXR"    , "int",  10, "Margin X,right (cm)"),
-			("marginYT"    , "int",  10, "Margin Y,top (cm)"),
+			("marginXL"    , "int",  23, "Margin X,left (cm)"),
+			("marginXR"    , "int",  23, "Margin X,right (cm)"),
+			("marginYT"    , "int",  23, "Margin Y,top (cm)"),
 
 
 			##################################################
 			# Plotter properties
 
-			("stepsPerRev", "int", 48, "Steps per revolution"),
-			("spoolDiameter", "int", 30, "Spool diameter, mm"),
+			("stepsPerRev"  , "int", 48, "Steps per revolution"),
+			("spoolDiameter", "int", 63, "Spool diameter, mm"),
 
 
 			("smoothness", "float", 0.2, "Curve smoothing"),
@@ -628,6 +669,9 @@ class Muralizer( inkex.Effect ):
 
 
 		try:
+			serial_fd = serial.Serial("/dev/ttyUSB0", timeout=1)
+			self.ms.attach_serial(serial_fd)
+
 			self.recursivelyTraverseSvg(self.svg, self.svgTransform)
 			
 			inkex.errormsg('Final node count: ' + str(self.svgNodeCount))
@@ -641,6 +685,8 @@ class Muralizer( inkex.Effect ):
 				self.svgTotalDeltaY = 0
 
 		finally:
+			serial_fd.close()
+			self.ms.detach_serial()
 			self.ms.cmd_scram() # This should work even if the serial port is gone
 
 	def recursivelyTraverseSvg( self, aNodeList,
