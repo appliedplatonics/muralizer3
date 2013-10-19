@@ -164,13 +164,16 @@ class MuralizerState:
 		self.alert("Set up state.")
 
 		if "serialPort" in kwargs:
-			self.serial_fd = kwargs["serialPort"]
-			self.has_serial = True
+			self.serial_path = kwargs["serialPort"]
 
+			self.serial_fd = serial.Serial(self.serial_path, 9600)
+			self.has_serial = True
 			header_line = self.serial_fd.readline()
 			self.alert("Got header line: " + header_line.strip())
 
 		else:
+			self.alert("Args: %s" % str(kwargs))
+
 			self.serial_fd = file("/dev/null", "w")
 			self.has_serial = False
 
@@ -206,9 +209,13 @@ class MuralizerState:
 		self.serial_fd = serial_fd
 		self.has_serial = True
 
+		self.alert("Attached serial.")
+
 	def detach_serial(self):
 		self.has_serial = False
 		self.serial_fd = file("/dev/null", "w")
+
+		self.alert("Detached serial.")
 
 	def page_width(self):
 		"""Get the width of the actual drawing area, in steps"""
@@ -410,6 +417,7 @@ class Muralizer( inkex.Effect ):
 
 			("manualType", "string", "none", "Manual command"),
 			("walkDistance","int", 10, "# of steps to walk (can be negative)"),
+
 			
 
 			##################################################
@@ -448,7 +456,7 @@ class Muralizer( inkex.Effect ):
 		self.nodeTarget = int( 0 )
 		self.pathcount = int( 0 )
 		self.LayersPlotted = 0
-		self.svgSerialPort = ''
+		self.svgSerialPort = '/dev/ttyUSB0'
 		self.svgLayer = -1
 		self.svgNodeCount = int( 0 )
 		self.svgDataRead = False
@@ -620,8 +628,16 @@ class Muralizer( inkex.Effect ):
 			inkex.errormsg("Unknown manual command to dispatch: %s" % self.options.manualType)
 			return
 
+		try:
+			serial_fd = serial.Serial("/dev/ttyUSB0", timeout=1)
+			self.ms.attach_serial(serial_fd)
+			retval = dispatch[self.options.manualType]()
 
-		retval = dispatch[self.options.manualType]()
+		finally:
+			serial_fd.close()
+			self.ms.detach_serial()
+			self.ms.cmd_scram() # This should work even if the serial port is gone
+
 
 
 		if None != retval:
