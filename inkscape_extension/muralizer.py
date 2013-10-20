@@ -172,7 +172,7 @@ class MuralizerState:
 			self.alert("Got header line: " + header_line.strip())
 
 		else:
-			self.alert("Args: %s" % str(kwargs))
+			# self.alert("Args: %s" % str(kwargs))
 
 			self.serial_fd = file("/dev/null", "w")
 			self.has_serial = False
@@ -262,11 +262,11 @@ Cursor: <%.1f,%.1f>, which is (%.2f,%.2f).""" % (
 		return (x,y)
 
 	def cur_x(self):
-		return (self.r0*self.r0 - self.r1*self.r1 + self.canvasWidth*self.canvasWidth)/(2*self.canvasWidth)
+		return (self.r0*self.r0 - self.r1*self.r1 + self.canvasWidth*self.canvasWidth)/(2*self.canvasWidth) - self.marginXL
 
 	def cur_y(self):
 		x = self.cur_x()
-		return math.sqrt( self.r0*self.r0 - x*x )
+		return math.sqrt( self.r0*self.r0 - x*x ) - self.marginYT
 
 
 	def calc_r0(self, x, y):
@@ -303,16 +303,22 @@ Cursor: <%.1f,%.1f>, which is (%.2f,%.2f).""" % (
 		return r
 
 	def go_to(self, x,y):
-		r0p = self.calc_r0(x,y)
-		r1p = self.calc_r1(x,y)
+		xp = x + self.marginXL
+		yp = y + self.marginYT
+		
+		r0p = self.calc_r0(xp,yp)
+		r1p = self.calc_r1(xp,yp)
 
-		self.alert("Got command to go to (%.1f,%.1f): <%.1f,%.1f> -> <%.1f,%.1f>" % (x, y, self.r0,self.r1, r0p,r1p, ))
+		self.alert("Got command to go to (%.1f,%.1f)/(%.1f,%.1f): <%.1f,%.1f> -> <%.1f,%.1f>" % (x, y, xp, yp, self.r0,self.r1, r0p,r1p, ))
 		self.cmd_move_rs(r0p, r1p)
 
 
 	def _query(self, s):
 		self.serial_fd.write(s + "\n")
-		return self.serial_fd.readline().strip()
+		if self.has_serial:
+			return self.serial_fd.readline().strip()
+		else:
+			return "-null serial-"
 
 
 	####################
@@ -344,11 +350,11 @@ Cursor: <%.1f,%.1f>, which is (%.2f,%.2f).""" % (
 
 	def cmd_move_r0(self, n):
 		self.alert("CMD: WALK R0: %d" % n)
-		self.cmd_move_rs(n, 0)
+		self.cmd_move_rs(self.r0+n, self.r1)
 
 	def cmd_move_r1(self, n):
 		self.alert("CMD: WALK R1: %d" % n)
-		self.cmd_move_rs(0, n)
+		self.cmd_move_rs(self.r0, self.r1+n)
 
 	def cmd_version(self):
 		self.alert("CMD: VERSION QUERY")
@@ -628,14 +634,17 @@ class Muralizer( inkex.Effect ):
 			inkex.errormsg("Unknown manual command to dispatch: %s" % self.options.manualType)
 			return
 
+		serial_fd = None
+
 		try:
-			serial_fd = serial.Serial("/dev/ttyUSB0", timeout=1)
+			serial_fd = serial.Serial("/dev/tty.usbserial-A4006Dyk", timeout=1)
 			self.ms.attach_serial(serial_fd)
 			retval = dispatch[self.options.manualType]()
 
 		finally:
-			serial_fd.close()
-			self.ms.detach_serial()
+			if serial_fd:
+				serial_fd.close()
+				self.ms.detach_serial()
 			self.ms.cmd_scram() # This should work even if the serial port is gone
 
 
@@ -684,8 +693,10 @@ class Muralizer( inkex.Effect ):
 				self.svgTransform = parseTransform(xform)
 
 
+		serial_fd = None
+
 		try:
-			serial_fd = serial.Serial("/dev/ttyUSB0", timeout=1)
+			serial_fd = serial.Serial("/dev/tty.usbserial-A4006Dyk", timeout=1)
 			self.ms.attach_serial(serial_fd)
 
 			self.recursivelyTraverseSvg(self.svg, self.svgTransform)
@@ -701,8 +712,9 @@ class Muralizer( inkex.Effect ):
 				self.svgTotalDeltaY = 0
 
 		finally:
-			serial_fd.close()
-			self.ms.detach_serial()
+			if serial_fd:
+				serial_fd.close()
+				self.ms.detach_serial()
 			self.ms.cmd_scram() # This should work even if the serial port is gone
 
 	def recursivelyTraverseSvg( self, aNodeList,
