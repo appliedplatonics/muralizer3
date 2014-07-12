@@ -218,13 +218,13 @@ class MuralizerState:
 		self.alert("Detached serial.")
 
 	def page_width(self):
-		"""Get the width of the actual drawing area, in steps"""
-		return (self.canvasWidth - self.marginXL - self.marginXR)/self.stepMM
+		"""Get the width of the actual drawing area, in mm"""
+		return (self.canvasWidth - self.marginXL - self.marginXR)
 
 
 	def page_height(self):
-		"""Get the height of the actual drawing area, in steps"""
-		return (self.canvasHeight - self.marginYT)/self.stepMM
+		"""Get the height of the actual drawing area, in mm"""
+		return (self.canvasHeight - self.marginYT)
 
 
 	def __str__(self):
@@ -245,19 +245,19 @@ Cursor: <%.1f,%.1f>, which is (%.2f,%.2f).""" % (
 
 
 	def clip_xy(self, x, y):
-		if x < self.marginXL:
+		if x < 0:
 			self.alert("x would violate left margin, clipping")
 			x = self.marginXL
-		elif x > (self.canvasWidth-self.marginXR):
+		elif x > self.page_width():
 			self.alert("x would violate right margin, clipping")
-			x = self.canvasWidth-self.marginXR
+			x = self.page_width()
 
-		if y < self.marginYT:
+		if y < 0:
 			self.alert("y would violate top margin, clipping")
 			y = self.marginYT
-		elif y > self.canvasHeight:
+		elif y > self.page_height():
 			self.alert("y would violate bottom of canvas, clipping")
-			y = self.canvasHeight
+			y = self.page_height()
 
 		return (x,y)
 
@@ -345,6 +345,7 @@ Cursor: <%.1f,%.1f>, which is (%.2f,%.2f).""" % (
 
 		q = "r %d %d" % (dr0, dr1)
 		retval = self._query(q)
+		time.sleep(max(abs(dr0),abs(dr1))*0.1)
 		self.alert(" %s  => %s" % (q.strip(), retval))
 		
 
@@ -370,10 +371,12 @@ Cursor: <%.1f,%.1f>, which is (%.2f,%.2f).""" % (
 
 	def cmd_pen_up(self):
 		self.alert("CMD: RAISE PEN")
+		return self._query("p u")
 
 	def cmd_pen_down(self):
 		self.alert("CMD: LOWER PEN")
-
+		return self._query("p d")
+	
 	def cmd_pen_toggle(self):
 		self.alert("CMD: TOGGLE PEN")
 
@@ -637,7 +640,7 @@ class Muralizer( inkex.Effect ):
 		serial_fd = None
 
 		try:
-			serial_fd = serial.Serial("/dev/tty.usbserial-A4006Dyk", timeout=1)
+			serial_fd = serial.Serial("/dev/tty.usbserial-A4006Dyk", timeout=10)
 			self.ms.attach_serial(serial_fd)
 			retval = dispatch[self.options.manualType]()
 
@@ -696,7 +699,7 @@ class Muralizer( inkex.Effect ):
 		serial_fd = None
 
 		try:
-			serial_fd = serial.Serial("/dev/tty.usbserial-A4006Dyk", timeout=1)
+			serial_fd = serial.Serial("/dev/tty.usbserial-A4006Dyk", timeout=10)
 			self.ms.attach_serial(serial_fd)
 
 			self.recursivelyTraverseSvg(self.svg, self.svgTransform)
