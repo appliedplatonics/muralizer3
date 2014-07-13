@@ -41,6 +41,7 @@ import os
 import string
 import sys
 import time
+import json
 
 # PySerial import
 import serial
@@ -162,11 +163,13 @@ class MuralizerState:
 
 	"""
 	def __init__(self, *args, **kwargs):
-		options = kwargs["options"]
-		self.update_options(options)
 		self.debug_path = "/tmp/muralizer_debug"
 		self.debug_fd = file(self.debug_path, "w")
+
 		self.alert("Set up state.")
+
+		options = kwargs["options"]
+		self.update_options(options)
 
 		if "serialPort" in kwargs:
 			self.serial_path = kwargs["serialPort"]
@@ -198,13 +201,53 @@ class MuralizerState:
 		
 		self.stepMM = self.spoolDiameter*math.pi/self.stepsPerRev
 
-		self.r0 = round( self.canvasWidth/self.stepMM )   # steps
-		self.r1 = round( self.canvasWidth/self.stepMM )   # steps
 
-
+		# XXX TODO There must be better bounds to use here
 		self.MIN_R = (self.spoolDiameter+25) / self.stepMM
 		self.MAX_R = math.sqrt(self.canvasHeight*self.canvasHeight + 
 				       self.canvasWidth*self.canvasWidth) / self.stepMM
+
+
+		# Figure out the initial coordinates...
+ 		initial_x = ( (self.canvasWidth-self.marginXR) + self.marginXL )/2
+		initial_y = (self.canvasHeight + self.marginYT)/2
+
+		self.r0 = self.calc_r0(initial_x, initial_y)
+		self.r1 = self.calc_r1(initial_x, initial_y)
+
+		#		self.r0 = round( self.canvasWidth/self.stepMM )   # steps
+		#		self.r1 = round( self.canvasWidth/self.stepMM )   # steps
+
+
+		# And splat it all out to our debug file
+		to_dump = [
+			(self.canvasWidth, "Canvas width, mm / canvasWidth"),
+			(self.canvasHeight, "Canvas height, mm / canvasHeight"),
+			(self.marginXL, "Margin left, mm / marginXL"),
+			(self.marginXR, "Margin right, mm / marginXR"),
+			(self.marginYT, "Margin top, mm / marginYT"),
+			(self.stepsPerRev, "Steps per rev, steps / stepsPerRev"),
+			(self.spoolDiameter, "Spool diameter, mm / spoolDiameter"),
+			(self.stepMM, "Step length, mm / stepMM"),
+			(self.r0, "r0 initial, steps / r0"),
+			(self.r1, "r1 initial, steps / r1"),
+			(self.MIN_R, "Min r, steps / MIN_R"),
+			(self.MAX_R, "Max r, steps / MAX_R"),
+
+			(initial_x, "Initial x / _computed_"),
+			(initial_y, "Initial y / _computed_"),
+			(self.abs_x(), "Current abs x / _computed_"),
+			(self.abs_y(), "Current abs y / _computed_"),
+			(self.area_x(), "Current drawing area x / _computed_"),
+			(self.area_y(), "Current drawing area y / _computed_"), 
+
+			]
+		
+
+		for x, s in to_dump:
+			self.alert("Opt\t%.1f\t%s" % (x,s))
+		
+			
 
 
 	def attach_serial(self, serial_fd):
@@ -235,10 +278,12 @@ class MuralizerState:
 	def __str__(self):
 		retval = """Muralizer: Canvas: (%.1f,%.1f) to (%.1f,%.1f) (%.1f x %.1f cm, margins of %.1f-%.1f, %f).
 Spools: %.1f mm diameter, %.1f steps/rev, %.3f mm resolution.
-Cursor: <%.1f,%.1f>, which is (%.2f,%.2f).""" % ( 
+Cursor: <%.1f,%.1f>, which is  (%.2f,%.2f), (%.2f,%.2f) in print area.""" % ( 
 			self.marginXL, self.marginYT,  self.canvasWidth-self.marginXR, self.canvasHeight,  self.canvasWidth, self.canvasHeight, self.marginXL, self.marginXR, self.marginYT,
 			self.spoolDiameter, self.stepsPerRev, self.stepMM,
-			self.r0, self.r1, self.cur_x(), self.cur_y())
+			self.r0, self.r1,
+                        self.abs_x(), self.abs_y(),
+                        self.area_x(), self.area_y())
 
 		return retval
 
@@ -249,33 +294,63 @@ Cursor: <%.1f,%.1f>, which is (%.2f,%.2f).""" % (
 		
 
 
-	def clip_xy(self, x, y):
-		if x < 0:
-			self.alert("x would violate left margin, clipping")
-			x = self.marginXL
-		elif x > self.page_width():
-			self.alert("x would violate right margin, clipping")
-			x = self.page_width()
+	def clip_abs_xy(self, x, y):
+		x_bounds = (self.marginXL, self.marginXL+self.page_width())
+		y_bounds = (self.marginYT, self.marginYT+self.page_height())
+		
+		if x < x_bounds[0]:
+			self.alert("x would violate left margin, clipping (%.1f < %.1f)" % (x,x_bounds[0]))
+			x = x_bounds[0]
+		elif x > x_bounds[1]:
+			self.alert("x would violate right margin, clipping (%.1f > %.1f)" % (x, x_bounds[1]))
+			x = x_bounds[1]
 
-		if y < 0:
-			self.alert("y would violate top margin, clipping")
-			y = self.marginYT
-		elif y > self.page_height():
-			self.alert("y would violate bottom of canvas, clipping")
-			y = self.page_height()
+		if y < y_bounds[0]:
+			self.alert("y would violate top margin, clipping (%.1f < %.1f)" % (y,y_bounds[0]))
+			y = y_bounds[0]
+		elif y > y_bounds[1]:
+			self.alert("y would violate bottom margin, clipping (%.1f > %.1f)" % (y, y_bounds[1]))
+			y = y_bounds[1]
 
 		return (x,y)
 
-	def cur_x(self):
-		return (self.r0*self.r0 - self.r1*self.r1 + self.canvasWidth*self.canvasWidth)/(2*self.canvasWidth) - self.marginXL
+	def abs_x(self):
+		# Trivial derivation:
+		#
+		# Construct two right triangles across the top of the
+		# canvas, with hypotenuses r0 and r1, both of height
+		# y, with bases x and (width-x).
+		#
+		# Then:
+		#
+		#      x^2 + y^2 = r0^2 => y^2 = r0^2-x^2
+		#  (w-x)^2 + y^2 = r1^2
+		#
+		#           w^2 - 2wx + x^2 + y^2 = r1^2
+		#  w^2 - 2wx + x^2 + (r0^2 - x^2) = r1^2
+		#                w^2 - 2wx + r0^2 = r1^2
+		#  => w^2 + r0^2 - r1^2 = 2wx
+		#  => x = (w^2 + r0^2 - r1^2)/2w
+		#
+		# Yay, my math degree was good for something!
+		#
+		
+		return (self.r0*self.r0 - self.r1*self.r1 + self.canvasWidth*self.canvasWidth)/(2*self.canvasWidth)
 
-	def cur_y(self):
-		x = self.cur_x()
-		return math.sqrt( self.r0*self.r0 - x*x ) - self.marginYT
+	def abs_y(self):
+		x = self.abs_x()
+		return math.sqrt( self.r0*self.r0 - x*x )
+		
+
+	def area_x(self):
+		return self.abs_x() - self.marginXL
+
+	def area_y(self):
+		return self.abs_y() - self.marginYT
 
 
 	def calc_r0(self, x, y):
-		(x,y) = self.clip_xy(x,y)
+		(x,y) = self.clip_abs_xy(x,y)
 
 		l = math.sqrt(x*x + y*y)
 		r = round( l/self.stepMM )
@@ -291,7 +366,7 @@ Cursor: <%.1f,%.1f>, which is (%.2f,%.2f).""" % (
 		return r
 
 	def calc_r1(self, x, y):
-		(x,y) = self.clip_xy(x,y)
+		(x,y) = self.clip_abs_xy(x,y)
 
 		xp = self.canvasWidth-x
 		l = math.sqrt(xp*xp + y*y)
@@ -307,14 +382,23 @@ Cursor: <%.1f,%.1f>, which is (%.2f,%.2f).""" % (
 
 		return r
 
-	def go_to(self, x,y):
+	def go_to_area(self, x,y):
 		xp = x + self.marginXL
 		yp = y + self.marginYT
 		
 		r0p = self.calc_r0(xp,yp)
 		r1p = self.calc_r1(xp,yp)
 
-		self.alert("Got command to go to (%.1f,%.1f)/(%.1f,%.1f): <%.1f,%.1f> -> <%.1f,%.1f>" % (x, y, xp, yp, self.r0,self.r1, r0p,r1p, ))
+
+		command_summary = {
+			"dest_area": (x,y),
+			"dest_abs": (xp,yp),
+			"cur_r": (self.r0,self.r1),
+			"dest_r": (r0p, r1p),
+			}
+			
+
+		self.alert("MOVE/ " + json.dumps(command_summary))
 		self.cmd_move_rs(r0p, r1p)
 
 
@@ -350,7 +434,8 @@ Cursor: <%.1f,%.1f>, which is (%.2f,%.2f).""" % (
 
 		q = "r %d %d" % (dr0, dr1)
 		retval = self._query(q)
-		time.sleep(max(abs(dr0),abs(dr1))*0.005)
+		if self.has_serial:
+			time.sleep(max(abs(dr0),abs(dr1))*0.005)
 		self.alert(" %s  => %s" % (q.strip(), retval))
 		
 
@@ -675,12 +760,33 @@ class Muralizer( inkex.Effect ):
 			self.ms.cmd_pen_toggle()
 
 
+	def debugNote(self, s):
+		self.ms.alert(s)
+
+
+	def getFitScale(self):
+		svgHeight = self.getLength('height', self.ms.page_height())
+		svgWidth = self.getLength('width', self.ms.page_width())
+
+		scale_h = self.ms.page_height() / svgHeight
+		scale_w = self.ms.page_width() / svgWidth
+
+		self.debugNote("Scale: svg: %.1f x %.1f; page: %.1f x %.1f; scales: %.3f / %.3f" % (svgWidth, svgHeight, self.ms.page_width(), self.ms.page_height(), scale_w, scale_h))
+
+		return min(scale_h, scale_w)
+
+		
+		
 
 	def plot( self ): # MIP
 		'''Perform the actual plotting, if selected in the interface:'''
 		#parse the svg data as a series of line segments and send each segment to be plotted
 
 		inkex.errormsg("Layers to print: " + str(self.svgLayer))
+
+		self.debugNote("Starting plot.  Layers to print: %s" % (str(self.svgLayer)))
+
+
 
 		# Viewbox handling
 		# Also ignores the preserveAspectRatio attribute
@@ -699,17 +805,24 @@ class Muralizer( inkex.Effect ):
 				xform = " ".join([xform_scale, xform_xlate])
 
 				self.svgTransform = parseTransform(xform)
+		else:
+			scalefactor = self.getFitScale()
+			xform = "scale(%f,%f)" % (scalefactor, scalefactor)
+			self.svgTransform = parseTransform(xform)
+
+		self.debugNote("svgTransform: %s" % self.svgTransform)
 
 
 		serial_fd = None
 
 		try:
-			serial_fd = serial.Serial("/dev/tty.usbserial-A4006Dyk", timeout=10)
-			self.ms.attach_serial(serial_fd)
+			#serial_fd = serial.Serial("/dev/tty.usbserial-A4006Dyk", timeout=10)
+			#self.ms.attach_serial(serial_fd)
 
 			self.recursivelyTraverseSvg(self.svg, self.svgTransform)
 			
 			inkex.errormsg('Final node count: ' + str(self.svgNodeCount))
+			self.debugNote('Final node count: ' + str(self.svgNodeCount))
 
 			if ( not self.bStopped ):
 				self.svgLayer = 0
@@ -1240,10 +1353,11 @@ class Muralizer( inkex.Effect ):
 
 				# Precondition: where the heck are we coming from?
 				if self.ptFirst is None:
-					self.fPrevX = self.ms.cur_x()
-					self.fPrevY = self.ms.cur_y()
+					self.fPrevX = self.ms.area_x()
+					self.fPrevY = self.ms.area_y()
 
 					self.ptFirst = (self.fPrevX, self.fPrevY)
+
 
 				if self.plotCurrentLayer:
 					self.plotLineAndTime()
@@ -1296,7 +1410,7 @@ class Muralizer( inkex.Effect ):
 			# Actual motion control
 
 			if not self.resumeMode:
-				self.ms.go_to(self.fX, self.fY)
+				self.ms.go_to_area(self.fX, self.fY)
 
 			####################
 			# Check if we need to pause

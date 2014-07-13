@@ -26,19 +26,19 @@ Need help? Sorry, that's not built yet.
 Muralizer: Basic Setup
 </_param>
 <param name="canvasWidth" type="int" min="10" max="10000"
-       _gui-text="      Canvas width (cm) 10~10000 (0.1~100m)">100</param>
+       _gui-text="      Canvas width (cm) 10~10000 (0.1~100m)">126</param>
 
 <param name="canvasHeight" type="int" min="10" max="10000"
-       _gui-text="      Canvas height (cm) 10~10,000 (0.1~100m)">100</param>
+       _gui-text="      Canvas height (cm) 10~10,000 (0.1~100m)">126</param>
 
 <param name="marginXL" type="int" min="0" max="5000"
-       _gui-text="      Margin X Left (cm) 0~5,000 (0~5m)">10</param>
+       _gui-text="      Margin X Left (cm) 0~5,000 (0~5m)">30</param>
 
 <param name="marginXR" type="int" min="0" max="5000"
-       _gui-text="      Margin X Right (cm) 0~5,000 (0~5m)">10</param>
+       _gui-text="      Margin X Right (cm) 0~5,000 (0~5m)">30</param>
 
 <param name="marginYT" type="int" min="0" max="5000"
-       _gui-text="      Margin Y Top (cm) 0~5,000 (0~5m)">10</param>
+       _gui-text="      Margin Y Top (cm) 0~5,000 (0~5m)">30</param>
 
       <param name="setupType" type="optiongroup" appearance=""
 	     _gui-text="          Action on 'Apply': ">
