@@ -730,7 +730,7 @@ class Muralizer( inkex.Effect ):
 		serial_fd = None
 
 		try:
-			serial_fd = serial.Serial("/dev/tty.usbserial-A4006Dyk", timeout=10)
+			serial_fd = serial.Serial("/dev/tty.usbserial-A4006Dx4", timeout=10)
 			self.ms.attach_serial(serial_fd)
 			retval = dispatch[self.options.manualType]()
 
@@ -816,8 +816,8 @@ class Muralizer( inkex.Effect ):
 		serial_fd = None
 
 		try:
-			#serial_fd = serial.Serial("/dev/tty.usbserial-A4006Dyk", timeout=10)
-			#self.ms.attach_serial(serial_fd)
+			serial_fd = serial.Serial("/dev/tty.usbserial-A4006Dx4", timeout=10)
+			self.ms.attach_serial(serial_fd)
 
 			self.recursivelyTraverseSvg(self.svg, self.svgTransform)
 			
