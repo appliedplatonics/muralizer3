@@ -1,9 +1,58 @@
-.skel
-=====
+Muralizer
+=========
 
-This is a skeleton project.  It needs better documentation.
+Muralizer III: third time's a charm
 
-Contents:
+Muralizer is a simple drawbot.  You can use it to go from a vector
+image file (SVG, etc) to lines on a whiteboard or wall, using standard
+markers or paint pens.
 
-web/ -- An empty website for this thing
-code/ -- An empty directory for code for this thing
+It uses two spools of wire to drag a pen across a board.  This version
+also includes a "pen lift" command, which allows non-contiguous lines,
+or for other actuation at the write head (eg paint cans could
+theoretically be used).
+
+
+
+Getting started
+---------------
+
+This is currently an unsupported/alpha release.  It's not clear that
+Applied Platonics will ever actually ship kits for this, but it seemed
+to be a shame to not actually share the creation.
+
+With that in mind: there is no real support for this release, and its
+documentation may be a bit lacking.  Apologies in advance, though
+hopefully a quick skim through it will be helpful if you're
+considering building a drawbot of your own.
+
+
+
+Contents
+--------
+
+The design is in three parts:
+
+circuits/ -- The circuit boards and schematics, in Eagle CAD format
+firmware/ -- the firmware for the circuit boards
+inkscape_extension/ -- the Inkscape "driver" for the board
+
+The Inkscape extension is a heavily-modified version of the eggbot
+driver, part of the EggBot from EMSL.  Earlier versions of muralizer
+used standalone ruby and python programs; integrating into Inkscape
+was always a TODO item.  This was a fairly easy way to get there,
+though a lot of stuff was modified beyond recognition in the process.
+
+
+
+Licenses
+--------
+
+All things here are Copyright (c) 2014 Applied Platonics, LLC. And all
+of them are built on the work of others, with a special mention due to
+Evil Mad Science Laboratories and their original eggbot driver.  It
+was a very helpful shortcut to getting into the Inkscape ecosystem.
+
+circuits/ -- cc-by-sa
+firmware/ -- GPLv2 (GPLv2 only)
+inkscape_extension/ -- GPLv2 (or later, as in original code)

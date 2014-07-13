@@ -51,7 +51,8 @@ Muralizer: Basic Setup
   pen-up and pen-down positions.
 
 - Raise pen and turn off stepper motors
-  for aligning objects in the Egg-Bot.
+  for getting Muralizer into its start 
+  position.
 </_param>
     </page>
 

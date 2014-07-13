@@ -29,6 +29,11 @@
 
 # TODO: Add and honor advisory locking around device open/close for non Win32
 
+# TODO: Reintroduce serial port scans
+# TODO: Complete refactor of #MIP functions, replace them with #MCLs.
+# TODO: Remove all the ugly/diff-stracting #MCL annotations once they're done.
+# TODO: Reintroduce eggbot-specific code and make this a generic drawbot interface.
+
 # Python imports
 from math import sqrt
 import gettext
@@ -345,7 +350,7 @@ Cursor: <%.1f,%.1f>, which is (%.2f,%.2f).""" % (
 
 		q = "r %d %d" % (dr0, dr1)
 		retval = self._query(q)
-		time.sleep(max(abs(dr0),abs(dr1))*0.1)
+		time.sleep(max(abs(dr0),abs(dr1))*0.005)
 		self.alert(" %s  => %s" % (q.strip(), retval))
 		
 
