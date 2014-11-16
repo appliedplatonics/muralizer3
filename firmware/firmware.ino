@@ -24,16 +24,39 @@
    Happy hacking! -jbm
  */
 
+/*
+  Changelog:
+
+  v 3.1.C : First spin of "final" schematic
+  
+*/
+
+
 #include <string.h>
 #include <Stepper.h>
 
 #include <Servo.h>
 
-#define VERSION_MAJOR 0
+#define VERSION_MAJOR 3
 #define VERSION_MINOR 1
 
-Stepper s_l(48, 2,3,4,5); // Servo at top left of canvas
-Stepper s_r(48, 6,7,8,9); // Servo at top right of canvas
+Stepper s_l(48, A3, A2, A4, A5);  // Servo at top left of canvas
+Stepper s_r(48, 13, 5, A0, A1); // Servo at top right of canvas
+
+#define SERVO_UP 30
+#define SERVO_DOWN 180
+
+#define PIN_SERVO 6
+
+#define PIN_LED_L1 3
+#define PIN_LED_L2 11
+
+#define PIN_LED_R1 -1 // TXLED
+#define PIN_LED_R2 2
+
+#define PIN_LED_S1 12
+#define PIN_LED_S2 4
+
 
 Servo pen_servo; // on pin 11
 
@@ -59,15 +82,23 @@ void print_help() {
 
 
 void pen_up() {
-  pen_servo.attach(11);
-  pen_servo.write(30);
+  pen_servo.attach(PIN_SERVO);
+  pen_servo.write(SERVO_UP);
+
+  digitalWrite(PIN_LED_S2, 0);
+  digitalWrite(PIN_LED_S1, 1);
+
   delay(1000);
   pen_servo.detach();
+
 }
 
 void pen_down() {
-  pen_servo.attach(11);
-  pen_servo.write(120);
+  pen_servo.attach(PIN_SERVO);
+  pen_servo.write(SERVO_DOWN);
+  digitalWrite(PIN_LED_S2, 1);
+  digitalWrite(PIN_LED_S1, 0);
+
   delay(1000);
   pen_servo.detach();
 }
@@ -76,23 +107,27 @@ void pen_down() {
 
 
 void setup() {
-  pinMode(13, OUTPUT);
-  digitalWrite(13, 1);
-  delay(100);
-  digitalWrite(13, 0);
-  delay(100);
-  digitalWrite(13, 1);
-  delay(100);
-  digitalWrite(13, 0);
-  delay(100);
+  pinMode(PIN_LED_S1, OUTPUT);
+  pinMode(PIN_LED_S2, OUTPUT);
+  pinMode(PIN_LED_L1, OUTPUT);
+  pinMode(PIN_LED_L2, OUTPUT);
+  pinMode(PIN_LED_R2, OUTPUT);
 
-  //  pen_servo.attach(11);
   pen_up();
 
   Serial.begin(9600);
 
   s_l.setSpeed(50);
   s_r.setSpeed(50);
+
+  pinMode(PIN_LED_L1, OUTPUT);
+
+  while (!Serial) { 
+    digitalWrite(PIN_LED_L1, 1);
+    delay(50);
+    digitalWrite(PIN_LED_L1, 0);
+    delay(50);
+  }
 
   Serial.print("Muralizer v" );
   print_version();
@@ -158,6 +193,13 @@ uint8_t cursor = 0;
 void loop() {
   const char *s0, *s1;
   int i0, i1;
+
+  while (!Serial) { 
+    digitalWrite(PIN_LED_L1, 1);
+    delay(50);
+    digitalWrite(PIN_LED_L1, 0);
+    delay(50);
+  }
 
 
   if (Serial.available() > 0) {
