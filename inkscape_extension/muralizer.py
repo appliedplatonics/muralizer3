@@ -29,7 +29,6 @@
 
 # TODO: Add and honor advisory locking around device open/close for non Win32
 
-# TODO: Reintroduce serial port scans
 # TODO: Complete refactor of #MIP functions, replace them with #MCLs.
 # TODO: Remove all the ugly/diff-stracting #MCL annotations once they're done.
 # TODO: Reintroduce eggbot-specific code and make this a generic drawbot interface.
