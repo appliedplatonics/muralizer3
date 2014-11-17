@@ -402,8 +402,6 @@ class Muralizer( inkex.Effect ):
 		serial_fd = None
 
 		try:
-			serial_fd = serial.Serial("/dev/tty.usbmodem1431", timeout=10)
-			self.ms.attach_serial(serial_fd)
 			retval = dispatch[self.options.manualType]()
 
 		finally:
@@ -488,8 +486,6 @@ class Muralizer( inkex.Effect ):
 		serial_fd = None
 
 		try:
-			serial_fd = serial.Serial("/dev/tty.usbmodem1431", timeout=10)
-			self.ms.attach_serial(serial_fd)
 
 			self.recursivelyTraverseSvg(self.svg, self.svgTransform)
 			
